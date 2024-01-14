@@ -1,5 +1,6 @@
 import asyncio
 import aiofiles
+import re
 from aiocsv import AsyncReader
 from json import loads, dumps
 from collections import deque
@@ -25,7 +26,8 @@ progress = Progress(
 # set up console
 console = Console()
 
-url_list = ['https://twitter.com', 'https://vxtwitter.com', 'https://fxtwitter.com', 'https://x.com']
+desired_download_url = 'https://d.fxtwitter.com'
+
 
 def current_time():
     # prints out the colored current time with ms for console-like output
@@ -92,10 +94,17 @@ async def main():
             if '754506775582998588' in message_file:
                 async with aiofiles.open(message_file, mode='r', encoding='utf-8') as csv_file:
                     async for row in AsyncReader(csv_file, delimiter=','):
-                        if any(url in row[2] for url in url_list):
-                            # TODO: filter to just the URL + status data, convert any links to fxtwitter links
-                            all_links.append(row[2])
-            progress.update(crawl_progress, advance=1)
+                        # backup strings:
+                        # (https?:\/\/)(\s)*(fixup|fixv|fx|vx)?+\.?(twitter\.com|x\.com)\/(\w*)\/status\/(\d*)
+                        # (https?:\/\/)(\s)*(fixup|fixv|fx|vx)?+\.?(twitter\.com|x\.com)\/*([\w\-\s]+\/)*([\w\-]+)
+                        twitter_links = re.findall(
+                            '(https?:\/\/)(\s)*(fixup|fixv|fx|vx)?+\.?(twitter\.com|x\.com)\/(\w*)\/status\/(\d*)',
+                            row[2])
+                        for link in twitter_links:
+                            all_links.append(link)
+        progress.update(crawl_progress, advance=1)
+
+    print(all_links)
 
 
 if __name__ == '__main__':
